@@ -1,0 +1,9 @@
+*.so
+*.ko
+*.cmd
+*.mod
+*.o
+*.mod.c
+*.symvers
+*.order
+/dscd_tc/tc_lib/
