@@ -31,7 +31,7 @@ static void explain1(const char *arg, const char *val)
 static int dscd_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 			  struct nlmsghdr *n, const char *dev)
 {
-	unsigned int limit = 0;
+	unsigned int B_max = 0;
 	bool set_rate = false;
 	bool set_abe_drop_threshold = false;
 	__u64 C = 0;
@@ -42,10 +42,10 @@ static int dscd_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 	struct rtattr *tail;
 
 	while (argc > 0) {
-		if (strcmp(*argv, "limit") == 0) {
+		if (strcmp(*argv, "B_max") == 0) {
 			NEXT_ARG();
-			if (get_u32(&limit, *argv, 0)) {
-				explain1("limit", *argv);
+			if (get_u32(&B_max, *argv, 0)) {
+				explain1("B_max", *argv);
 				return -1;
 			}
 		} else if (strcmp(*argv, "C") == 0) {
@@ -94,8 +94,8 @@ static int dscd_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 	}
 
 	tail = addattr_nest(n, 1024, TCA_OPTIONS | NLA_F_NESTED);
-	if (limit)
-		addattr_l(n, 1024, TCA_DSCD_LIMIT, &limit, sizeof(limit));
+	if (B_max)
+		addattr_l(n, 1024, TCA_DSCD_LIMIT, &B_max, sizeof(B_max));
 	if (set_rate)
 		addattr_l(n, 1024, TCA_DSCD_RATE, &C, sizeof(C));
 	if (credit_half_life)
@@ -125,7 +125,7 @@ static void dscd_print_mode(unsigned int value, unsigned int max,
 static int dscd_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 {
 	struct rtattr *tb[TCA_FQ_PIE_MAX + 1];
-	unsigned int limit = 0;
+	unsigned int B_max = 0;
 	__u64 C = 0;
 	__u64 credit_half_life = 0;
 	__u64 rate_memory = 0;
@@ -142,8 +142,8 @@ static int dscd_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 
 	if (tb[TCA_DSCD_LIMIT] &&
 	    RTA_PAYLOAD(tb[TCA_DSCD_LIMIT]) >= sizeof(__u32)) {
-		limit = rta_getattr_u32(tb[TCA_DSCD_LIMIT]);
-		print_uint(PRINT_ANY, "limit", "limit %ub ", limit);
+		B_max = rta_getattr_u32(tb[TCA_DSCD_LIMIT]);
+		print_uint(PRINT_ANY, "B_max", "B_max %ub ", B_max);
 	}
 	if (tb[TCA_DSCD_RATE] &&
 	    RTA_PAYLOAD(tb[TCA_DSCD_RATE]) >= sizeof(__u64)) {
