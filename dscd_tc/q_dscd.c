@@ -18,9 +18,9 @@
 static void explain(void)
 {
 	fprintf(stderr,
-		"Usage: ... dscd [ limit SIZE ] [ rate RATE ]\n"
-		"                [ halftime TIME ] [ rate_memory TIME ]\n"
-		"                [ dmax_abe TIME ]\n");
+		"Usage: ... dscd [ B_max SIZE ] [ C RATE ]\n"
+		"                [ credit_half_life TIME ] [ rate_memory TIME ]\n"
+		"                [ T_d TIME ] [ T_q NUM ]\n");
 }
 
 static void explain1(const char *arg, const char *val)
@@ -34,11 +34,11 @@ static int dscd_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 	unsigned int limit = 0;
 	bool set_rate = false;
 	bool set_abe_drop_threshold = false;
-	__u64 rate = 0;
-	__u64 halftime = 0;
+	__u64 C = 0;
+	__u64 credit_half_life = 0;
 	__u64 rate_memory = 0;
-	__u64 dmax_abe = 0;
-	__u64 abe_drop_threshold = 0;
+	__u64 T_d = 0;
+	__u64 T_q = 0;
 	struct rtattr *tail;
 
 	while (argc > 0) {
@@ -48,17 +48,17 @@ static int dscd_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 				explain1("limit", *argv);
 				return -1;
 			}
-		} else if (strcmp(*argv, "rate") == 0) {
+		} else if (strcmp(*argv, "C") == 0) {
 			NEXT_ARG();
 			set_rate = true;
-			if (get_rate64(&rate, *argv)) {
-				explain1("rate", *argv);
+			if (get_rate64(&C, *argv)) {
+				explain1("C", *argv);
 				return -1;
 			}
-		} else if (strcmp(*argv, "halftime") == 0) {
+		} else if (strcmp(*argv, "credit_half_life") == 0) {
 			NEXT_ARG();
-			if (get_time64(&halftime, *argv)) {
-				explain1("halftime", *argv);
+			if (get_time64(&credit_half_life, *argv)) {
+				explain1("credit_half_life", *argv);
 				return -1;
 			}
 		} else if (strcmp(*argv, "rate_memory") == 0) {
@@ -67,17 +67,17 @@ static int dscd_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 				explain1("rate_memory", *argv);
 				return -1;
 			}
-		} else if (strcmp(*argv, "dmax_abe") == 0) {
+		} else if (strcmp(*argv, "T_d") == 0) {
 			NEXT_ARG();
-			if (get_time64(&dmax_abe, *argv)) {
-				explain1("dmax_abe", *argv);
+			if (get_time64(&T_d, *argv)) {
+				explain1("T_d", *argv);
 				return -1;
 			}
-		} else if (strcmp(*argv, "abe_drop_threshold") == 0) {
+		} else if (strcmp(*argv, "T_q") == 0) {
 			NEXT_ARG();
 			set_abe_drop_threshold = true;
-			if (get_u64(&abe_drop_threshold, *argv, 0)) {
-				explain1("abe_drop_threshold", *argv);
+			if (get_u64(&T_q, *argv, 0)) {
+				explain1("T_q", *argv);
 				return -1;
 			}
 		} else if (strcmp(*argv, "help") == 0) {
@@ -97,15 +97,15 @@ static int dscd_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 	if (limit)
 		addattr_l(n, 1024, TCA_DSCD_LIMIT, &limit, sizeof(limit));
 	if (set_rate)
-		addattr_l(n, 1024, TCA_DSCD_RATE, &rate, sizeof(rate));
-	if (halftime)
-		addattr_l(n, 1024, TCA_DSCD_CREDIT_HALF_LIFE, &halftime, sizeof(halftime));
+		addattr_l(n, 1024, TCA_DSCD_RATE, &C, sizeof(C));
+	if (credit_half_life)
+		addattr_l(n, 1024, TCA_DSCD_CREDIT_HALF_LIFE, &credit_half_life, sizeof(credit_half_life));
 	if (rate_memory)
 		addattr_l(n, 1024, TCA_DSCD_RATE_MEMORY, &rate_memory, sizeof(rate_memory));
-	if (dmax_abe)
-		addattr_l(n, 1024, TCA_DSCD_T_D, &dmax_abe, sizeof(dmax_abe));
+	if (T_d)
+		addattr_l(n, 1024, TCA_DSCD_T_D, &T_d, sizeof(T_d));
 	if (set_abe_drop_threshold)
-		addattr_l(n, 1024, TCA_DSCD_T_Q, &abe_drop_threshold, sizeof(abe_drop_threshold));
+		addattr_l(n, 1024, TCA_DSCD_T_Q, &T_q, sizeof(T_q));
 	addattr_nest_end(n, tail);
 
 	return 0;
@@ -126,11 +126,11 @@ static int dscd_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 {
 	struct rtattr *tb[TCA_FQ_PIE_MAX + 1];
 	unsigned int limit = 0;
-	__u64 rate = 0;
-	__u64 halftime = 0;
+	__u64 C = 0;
+	__u64 credit_half_life = 0;
 	__u64 rate_memory = 0;
-	__u64 dmax_abe = 0;
-	__u64 abe_drop_threshold = 0;
+	__u64 T_d = 0;
+	__u64 T_q = 0;
 
 	SPRINT_BUF(b1);
 	SPRINT_BUF(b2);
@@ -147,15 +147,15 @@ static int dscd_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	}
 	if (tb[TCA_DSCD_RATE] &&
 	    RTA_PAYLOAD(tb[TCA_DSCD_RATE]) >= sizeof(__u64)) {
-		rate = rta_getattr_u64(tb[TCA_DSCD_RATE]);
-		print_string(PRINT_FP, NULL, "rate %s ", sprint_rate(rate, b2));
-		print_u64(PRINT_JSON, "rate_bits_per_sec", NULL, rate);
+		C = rta_getattr_u64(tb[TCA_DSCD_RATE]);
+		print_string(PRINT_FP, NULL, "rate %s ", sprint_rate(C, b2));
+		print_u64(PRINT_JSON, "rate_bits_per_sec", NULL, C);
 	}
 	if (tb[TCA_DSCD_CREDIT_HALF_LIFE] &&
 	    RTA_PAYLOAD(tb[TCA_DSCD_CREDIT_HALF_LIFE]) >= sizeof(__u64)) {
-		halftime = rta_getattr_u64(tb[TCA_DSCD_CREDIT_HALF_LIFE]);
-		print_string(PRINT_FP, NULL, "halftime %s ", sprint_time64(halftime, b1));
-		print_u64(PRINT_JSON, "halftime_ns", NULL, halftime);
+		credit_half_life = rta_getattr_u64(tb[TCA_DSCD_CREDIT_HALF_LIFE]);
+		print_string(PRINT_FP, NULL, "credit_half_life %s ", sprint_time64(credit_half_life, b1));
+		print_u64(PRINT_JSON, "credit_half_life_ns", NULL, credit_half_life);
 	}
 	if (tb[TCA_DSCD_RATE_MEMORY] &&
 	    RTA_PAYLOAD(tb[TCA_DSCD_RATE_MEMORY]) >= sizeof(__u64)) {
@@ -165,14 +165,14 @@ static int dscd_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	}
 	if (tb[TCA_DSCD_T_D] &&
 	    RTA_PAYLOAD(tb[TCA_DSCD_T_D]) >= sizeof(__u64)) {
-		dmax_abe = rta_getattr_u64(tb[TCA_DSCD_T_D]);
-		print_string(PRINT_FP, NULL, "dmax_abe %s ", sprint_time64(dmax_abe, b1));
-		print_u64(PRINT_JSON, "dmax_abe_ns", NULL, dmax_abe);
+		T_d = rta_getattr_u64(tb[TCA_DSCD_T_D]);
+		print_string(PRINT_FP, NULL, "T_d %s ", sprint_time64(T_d, b1));
+		print_u64(PRINT_JSON, "T_d_ns", NULL, T_d);
 	}
 	if (tb[TCA_DSCD_T_Q] &&
 	    RTA_PAYLOAD(tb[TCA_DSCD_T_Q]) >= sizeof(__u64)) {
-		abe_drop_threshold = rta_getattr_u64(tb[TCA_DSCD_T_Q]);
-		print_u64(PRINT_ANY, "abe_drop_threshold", "abe_drop_threshold %llu ", abe_drop_threshold);
+		T_q = rta_getattr_u64(tb[TCA_DSCD_T_Q]);
+		print_u64(PRINT_ANY, "T_q_ns", "T_q %llu ", T_q);
 	}
 
 	return 0;
